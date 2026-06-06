@@ -88,6 +88,13 @@ export async function resumeSessionInBackground(state: SessionState): Promise<bo
   }
 
   return new Promise<boolean>((resolve) => {
+    let resolved = false;
+    const safeResolve = (val: boolean) => {
+      if (!resolved) {
+        resolved = true;
+        resolve(val);
+      }
+    };
 
     let limitDetected = false;
     let accumulatedOutput = "";
@@ -149,30 +156,36 @@ export async function resumeSessionInBackground(state: SessionState): Promise<bo
       if (current && current.status === "resuming") {
         await updateSession(state.id, { status: "failed" });
       }
-      resolve(false);
+      safeResolve(false);
     });
 
     child.on("exit", async (code) => {
       const current = await getSession(state.id);
       if (!current) {
-        return resolve(false);
+        return safeResolve(false);
       }
 
       if (current.status === "resuming") {
         if (code === 0) {
           logger.info(`Session ${state.id} completed successfully.`, "aar");
           await updateSession(state.id, { status: "completed" });
-          resolve(true);
+          safeResolve(true);
         } else {
           logger.info(`Session ${state.id} exited with code ${code}.`, "aar");
           await updateSession(state.id, { status: "failed" });
-          resolve(false);
+          safeResolve(false);
         }
       } else if (current.status === "waiting_limit_reset") {
-        resolve(false);
+        safeResolve(false);
       } else {
-        resolve(false);
+        safeResolve(false);
       }
+    });
+
+    // 起動直後のエラー（ENOENT等）をキャッチするため、
+    // 次のイベントループのタイミングでエラーが無ければ起動成功とみなし、即座に呼び出し元に制御を返す
+    setImmediate(() => {
+      safeResolve(true);
     });
   });
 }
