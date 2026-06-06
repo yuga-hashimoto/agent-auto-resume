@@ -54,10 +54,28 @@ export const antigravityProvider: AgentProvider = {
   async getResumeCommand(state: SessionState): Promise<string[]> {
     let helpOutput = "";
     try {
+      const pathEnv = process.env.PATH || "";
+      const home = os.homedir();
+      const extraPaths = [
+        "/usr/local/bin",
+        "/opt/homebrew/bin",
+        `${home}/.npm-global/bin`,
+        `${home}/.hermes/node/bin`,
+        `${home}/.local/bin`,
+      ];
+      const newPath = [
+        ...extraPaths.filter((p) => !pathEnv.includes(p)),
+        pathEnv,
+      ].join(":");
+
       helpOutput = execSync("agy --help", {
         cwd: state.cwd,
         encoding: "utf-8",
         stdio: ["ignore", "pipe", "ignore"],
+        env: {
+          ...process.env,
+          PATH: newPath,
+        },
       });
     } catch {
       // agyコマンドが使えない、またはエラーの場合は helpOutput が空になる

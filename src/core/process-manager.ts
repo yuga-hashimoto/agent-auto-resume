@@ -1,4 +1,5 @@
 import pty from "node-pty";
+import os from "os";
 import { SessionState } from "./types.js";
 import { updateSession, getSession } from "./session-store.js";
 import { detectLimit } from "./detector.js";
@@ -31,7 +32,7 @@ export async function resumeSessionInBackground(state: SessionState): Promise<bo
   let ptyProcess: pty.IPty;
   try {
     const pathEnv = process.env.PATH || "";
-    const home = process.env.HOME || "";
+    const home = os.homedir();
     const extraPaths = [
       "/usr/local/bin",
       "/opt/homebrew/bin",
@@ -43,6 +44,8 @@ export async function resumeSessionInBackground(state: SessionState): Promise<bo
       ...extraPaths.filter((p) => !pathEnv.includes(p)),
       pathEnv,
     ].join(":");
+
+    logger.debug(`Spawning command: ${cmd} with PATH: ${newPath}`, "aar");
 
     ptyProcess = pty.spawn(cmd, args, {
       name: "xterm-color",
