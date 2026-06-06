@@ -159,7 +159,7 @@ async function handleFileChange(filePath: string, providerName: ProviderName) {
               (event.cwd ? s.cwd === event.cwd : true)
           );
 
-          const resetAtStr = detection.resetAt ? detection.resetAt.toISOString() : undefined;
+          const resetAtStr = detection.resetAt ? detection.resetAt.toISOString() : new Date().toISOString();
 
           if (matchedSession) {
             if (matchedSession.status !== "waiting_limit_reset") {

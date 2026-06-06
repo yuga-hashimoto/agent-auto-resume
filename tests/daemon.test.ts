@@ -39,11 +39,19 @@ describe("daemon", () => {
     // バックグラウンドでのPTY再起動はコマンドが存在しないため失敗し、最終的に status が failed になる
     await daemon["processWaitingSessions"]();
 
-    const updated = await getSession(session.id);
+    // 非同期でプロセスが終了して failed に変わるのを待つ
+    let updated;
+    for (let i = 0; i < 20; i++) {
+      updated = await getSession(session.id);
+      if (updated?.status === "failed") {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
     expect(updated?.status).toBe("failed");
   });
 
-  it("should mark session as failed if resetAt is missing", async () => {
+  it("should complete missing resetAt with fallback instead of failing", async () => {
     // resetAt がないセッションを作成
     const session = await createSession({
       provider: "claude",
@@ -62,7 +70,8 @@ describe("daemon", () => {
     await daemon["processWaitingSessions"]();
 
     const updated = await getSession(session.id);
-    // 自動リトライを行わず、failedになるはず
-    expect(updated?.status).toBe("failed");
+    // 自動リトライを行わず、fallbackでresetAtが補完され、waiting_limit_resetを維持する
+    expect(updated?.status).toBe("waiting_limit_reset");
+    expect(updated?.resetAt).toBeDefined();
   });
 });

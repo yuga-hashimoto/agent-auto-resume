@@ -77,11 +77,12 @@ export class AarDaemon {
 
     for (const session of waiting) {
       if (!session.resetAt) {
-        logger.warn(`Session ${session.id} reset time is unknown. Mark as failed.`, "aar");
+        const fallbackResetAt = new Date().toISOString();
+        logger.info(`Session ${session.id} reset time is unknown. Falling back to default wait (using buffer duration).`, "aar");
         await updateSession(session.id, {
-          status: "failed",
+          resetAt: fallbackResetAt,
         });
-        continue;
+        session.resetAt = fallbackResetAt;
       }
 
       const waitMsLeft = getWaitMs(session);

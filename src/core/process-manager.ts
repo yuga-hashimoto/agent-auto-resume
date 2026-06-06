@@ -126,7 +126,7 @@ export async function resumeSessionInBackground(state: SessionState): Promise<bo
           limitDetected = true;
           logger.warn(`Limit re-detected during resume for session ${state.id}`, "aar");
 
-          const resetAtStr = detection.resetAt ? detection.resetAt.toISOString() : undefined;
+          const resetAtStr = detection.resetAt ? detection.resetAt.toISOString() : new Date().toISOString();
           updateSession(state.id, {
             status: "waiting_limit_reset",
             lastLimitDetectedAt: new Date().toISOString(),
