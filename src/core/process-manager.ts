@@ -30,6 +30,20 @@ export async function resumeSessionInBackground(state: SessionState): Promise<bo
 
   let ptyProcess: pty.IPty;
   try {
+    const pathEnv = process.env.PATH || "";
+    const home = process.env.HOME || "";
+    const extraPaths = [
+      "/usr/local/bin",
+      "/opt/homebrew/bin",
+      `${home}/.npm-global/bin`,
+      `${home}/.hermes/node/bin`,
+      `${home}/.local/bin`,
+    ];
+    const newPath = [
+      ...extraPaths.filter((p) => !pathEnv.includes(p)),
+      pathEnv,
+    ].join(":");
+
     ptyProcess = pty.spawn(cmd, args, {
       name: "xterm-color",
       cols: 80,
@@ -37,6 +51,7 @@ export async function resumeSessionInBackground(state: SessionState): Promise<bo
       cwd: state.cwd,
       env: {
         ...process.env,
+        PATH: newPath,
         AAR_SESSION_ID: state.id,
       },
     });

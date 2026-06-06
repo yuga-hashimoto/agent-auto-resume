@@ -1,11 +1,13 @@
 import { execSync } from "child_process";
+import os from "os";
+import path from "path";
 import { AgentProvider, LimitDetection, SessionState } from "../core/types.js";
 import { parseTimeString } from "../core/time-parser.js";
 import { ANTIGRAVITY_SAFE_RESUME_PROMPT } from "../prompts/safe-resume.js";
 
 export const antigravityProvider: AgentProvider = {
   name: "antigravity",
-  displayName: "Google Antigravity CLI",
+  displayName: "Google Antigravity",
   defaultCommand: ["agy"],
 
   detectLimit(output: string): LimitDetection {
@@ -23,10 +25,12 @@ export const antigravityProvider: AgentProvider = {
       /reset at/i,
       /resets at/i,
       /resets_at/i,
+      /resets in/i,
       /retry after/i,
       /retry_after/i,
       /resource_exhausted/i,
       /exhausted your capacity/i,
+      /Individual quota reached/i,
       /code 429/i,
     ];
 
@@ -93,6 +97,45 @@ export const antigravityProvider: AgentProvider = {
   },
 
   getTranscriptDirs(): string[] {
-    return [];
+    const home = os.homedir();
+    return [
+      // Antigravity Mac App のトランスクリプトディレクトリ
+      path.join(home, ".gemini", "antigravity", "brain"),
+      // Antigravity CLI のトランスクリプトディレクトリ
+      path.join(home, ".gemini", "antigravity-cli", "brain"),
+    ];
+  },
+
+  parseTranscriptEvent(line: string) {
+    try {
+      const data = JSON.parse(line);
+      if (data && typeof data === "object") {
+        let text: string | undefined;
+
+        // Antigravity Mac App のエラー形式:
+        // { type: "ERROR_MESSAGE", source: "SYSTEM",
+        //   error: "RESOURCE_EXHAUSTED (code 429): Individual quota reached. ... Resets in 157h20m8s." }
+        if (data.type === "ERROR_MESSAGE" && typeof data.error === "string") {
+          text = data.error;
+        }
+
+        // ERROR_MESSAGE 以外はスキップ (PLANNER_RESPONSE の content にソースコードが
+        // 含まれることがあり偽陽性の原因になるため)
+        if (!text) {
+          return undefined;
+        }
+
+        return {
+          text,
+          cwd: undefined, // Antigravityトランスクリプトにはcwdフィールドがない
+          sessionId: undefined,
+          timestamp: typeof data.created_at === "string" ? data.created_at : undefined,
+        };
+      }
+    } catch {
+      // JSONパースエラーは無視
+    }
+    return undefined;
   },
 };
+

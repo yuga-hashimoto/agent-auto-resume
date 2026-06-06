@@ -56,14 +56,45 @@ export const claudeProvider: AgentProvider = {
     try {
       const data = JSON.parse(line);
       if (data && typeof data === "object") {
-        // text フィールドは data.text や data.message, または data.input.text など
-        let text = data.text || data.message || data.content;
-        if (!text && data.input && typeof data.input === "object") {
-          text = data.input.text;
+        let text: string | undefined;
+
+        // Claude Code Mac app 形式:
+        // { error: "rate_limit", apiErrorStatus: 429,
+        //   message: { content: [{ type: "text", text: "You've hit your session limit · resets 4:20am (Asia/Tokyo)" }] } }
+        if (data.error === "rate_limit" || data.apiErrorStatus === 429 || data.isApiErrorMessage) {
+          // message.content 配列からテキスト抽出
+          if (data.message && Array.isArray(data.message.content)) {
+            for (const block of data.message.content) {
+              if (block.type === "text" && typeof block.text === "string") {
+                text = block.text;
+                break;
+              }
+            }
+          }
+          // message.content が文字列の場合
+          if (!text && data.message && typeof data.message.content === "string") {
+            text = data.message.content;
+          }
+          // error フィールド自体にメッセージがある場合
+          if (!text && typeof data.error === "string" && data.error !== "rate_limit") {
+            text = data.error;
+          }
         }
-        if (!text && data.output && typeof data.output === "object") {
-          text = data.output.text;
+
+        // 通常のメッセージ形式 (CLI出力形式)
+        if (!text) {
+          text = data.text || data.content;
+          if (!text && data.message && typeof data.message === "string") {
+            text = data.message;
+          }
+          if (!text && data.input && typeof data.input === "object") {
+            text = data.input.text;
+          }
+          if (!text && data.output && typeof data.output === "object") {
+            text = data.output.text;
+          }
         }
+
         return {
           text: typeof text === "string" ? text : undefined,
           cwd: typeof data.cwd === "string" ? data.cwd : undefined,

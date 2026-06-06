@@ -15,6 +15,11 @@ export const codexProvider: AgentProvider = {
       /try again at/i,
       /resets_at/i,
       /usage_limit_reached/i,
+      /usage limit/i,
+      /rate limit exceeded/i,
+      /exhausted your capacity/i,
+      /code 429/i,
+      /resource_exhausted/i,
     ];
 
     for (const line of lines) {

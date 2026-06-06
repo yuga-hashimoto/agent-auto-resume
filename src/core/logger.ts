@@ -13,9 +13,14 @@ export enum LogLevel {
 }
 
 let currentLogLevel = LogLevel.INFO;
+let isConsoleMuted = false;
 
 export function setLogLevel(level: LogLevel) {
   currentLogLevel = level;
+}
+
+export function setMuteConsole(mute: boolean) {
+  isConsoleMuted = mute;
 }
 
 async function writeToFile(message: string) {
@@ -40,7 +45,7 @@ export const logger = {
   debug(message: string, prefix = "aar") {
     if (currentLogLevel <= LogLevel.DEBUG) {
       const msg = formatMessage(prefix, message, chalk.gray);
-      console.log(msg);
+      if (!isConsoleMuted) console.log(msg);
       writeToFile(msg);
     }
   },
@@ -48,7 +53,7 @@ export const logger = {
   info(message: string, prefix = "aar") {
     if (currentLogLevel <= LogLevel.INFO) {
       const msg = formatMessage(prefix, message, chalk.blue);
-      console.log(msg);
+      if (!isConsoleMuted) console.log(msg);
       writeToFile(msg);
     }
   },
@@ -56,7 +61,7 @@ export const logger = {
   warn(message: string, prefix = "aar") {
     if (currentLogLevel <= LogLevel.WARN) {
       const msg = formatMessage(prefix, message, chalk.yellow);
-      console.warn(msg);
+      if (!isConsoleMuted) console.warn(msg);
       writeToFile(msg);
     }
   },
@@ -64,7 +69,7 @@ export const logger = {
   error(message: string, prefix = "aar") {
     if (currentLogLevel <= LogLevel.ERROR) {
       const msg = formatMessage(prefix, message, chalk.red);
-      console.error(msg);
+      if (!isConsoleMuted) console.error(msg);
       writeToFile(msg);
     }
   },

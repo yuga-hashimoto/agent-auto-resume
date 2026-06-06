@@ -55,6 +55,44 @@ describe("time-parser", () => {
     expect(d?.getMinutes()).toBe(0);
   });
 
+  it("should parse 'Resets in XhYmZs' duration format (Antigravity)", () => {
+    // Resets in 157h20m8s → 157時間20分8秒後
+    const d1 = parseTimeString(
+      "RESOURCE_EXHAUSTED (code 429): Individual quota reached. Resets in 157h20m8s.",
+      refDate
+    );
+    expect(d1).toBeDefined();
+    const expected1 = refDate.getTime() + (157 * 3600 + 20 * 60 + 8) * 1000;
+    expect(d1?.getTime()).toBe(expected1);
+
+    // Resets in 22m49s → 22分49秒後
+    const d2 = parseTimeString(
+      "RESOURCE_EXHAUSTED (code 429): exhausted your capacity. Resets in 22m49s.",
+      refDate
+    );
+    expect(d2).toBeDefined();
+    const expected2 = refDate.getTime() + (22 * 60 + 49) * 1000;
+    expect(d2?.getTime()).toBe(expected2);
+
+    // "Your quota will reset after 1s" → 1秒後
+    const d3 = parseTimeString(
+      "RESOURCE_EXHAUSTED (code 429): You have exhausted your capacity. Your quota will reset after 1s.",
+      refDate
+    );
+    expect(d3).toBeDefined();
+    const expected3 = refDate.getTime() + 1 * 1000;
+    expect(d3?.getTime()).toBe(expected3);
+
+    // "Resets in 0s" → 1分後に設定される
+    const d4 = parseTimeString(
+      "RESOURCE_EXHAUSTED (code 429): exhausted your capacity. Resets in 0s.",
+      refDate
+    );
+    expect(d4).toBeDefined();
+    const expected4 = refDate.getTime() + 60_000;
+    expect(d4?.getTime()).toBe(expected4);
+  });
+
   it("should return undefined for invalid strings", () => {
     const d = parseTimeString("just some random text", refDate);
     expect(d).toBeUndefined();

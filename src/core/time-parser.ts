@@ -10,6 +10,24 @@ export function parseTimeString(str: string, referenceDate: Date = new Date()): 
     }
   }
 
+  // 1.5 "Resets in XhYmZs" 形式 (Antigravity)
+  // 例: "Resets in 157h20m8s", "Resets in 22m49s", "Resets in 0s",
+  //     "Your quota will reset after 1s"
+  const resetsInRegex = /(?:resets?\s+(?:in|after))\s+(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?/i;
+  const resetsInMatch = str.match(resetsInRegex);
+  if (resetsInMatch) {
+    const hours = resetsInMatch[1] ? parseInt(resetsInMatch[1], 10) : 0;
+    const minutes = resetsInMatch[2] ? parseInt(resetsInMatch[2], 10) : 0;
+    const seconds = resetsInMatch[3] ? parseInt(resetsInMatch[3], 10) : 0;
+    const totalMs = (hours * 3600 + minutes * 60 + seconds) * 1000;
+    if (totalMs > 0) {
+      return new Date(referenceDate.getTime() + totalMs);
+    }
+    // totalMs === 0 の場合 (Resets in 0s) はすぐにリトライ可能
+    // → 1分後に設定
+    return new Date(referenceDate.getTime() + 60_000);
+  }
+
   // 2. ISO8601
   // 2026-06-06T15:00:00+09:00, 2026-06-06T15:00:00Z など
   const isoRegex = /(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)/i;

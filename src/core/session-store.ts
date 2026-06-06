@@ -46,8 +46,8 @@ export const DEFAULT_CONFIG: AarConfig = {
       enabled: true,
       command: "agy",
       experimental: true,
-      watchTranscripts: false,
-      transcriptDirs: [],
+      watchTranscripts: true,
+      transcriptDirs: ["~/.gemini/antigravity/brain", "~/.gemini/antigravity-cli/brain"],
     },
   },
   tmux: {

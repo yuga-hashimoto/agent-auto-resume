@@ -3,7 +3,7 @@ import { spawn, ChildProcess } from "child_process";
 import { SessionState, ProviderName } from "./types.js";
 import { detectLimit } from "./detector.js";
 import { createSession, updateSession, loadConfig, getSession } from "./session-store.js";
-import { logger } from "./logger.js";
+import { logger, setMuteConsole } from "./logger.js";
 import { getProvider } from "../providers/index.js";
 
 
@@ -17,6 +17,18 @@ export interface PtyRunnerOptions {
 
 export async function runInPty(options: PtyRunnerOptions): Promise<void> {
   const { providerName, command, args, cwd = process.cwd(), sessionId } = options;
+
+  const isInteractive = !!process.stdout.isTTY;
+  const isServerMode = args.some((arg) =>
+    arg.includes("app-server") ||
+    arg.includes("--listen") ||
+    arg.includes("stdio") ||
+    arg.includes("mcp")
+  );
+
+  if (isServerMode || !isInteractive) {
+    setMuteConsole(true);
+  }
 
   const config = await loadConfig();
   const provider = getProvider(providerName);
@@ -45,14 +57,6 @@ export async function runInPty(options: PtyRunnerOptions): Promise<void> {
   }
 
   logger.info(`Managed session started: ${session.id}`, "aar");
-
-  const isInteractive = !!process.stdout.isTTY;
-  const isServerMode = args.some((arg) =>
-    arg.includes("app-server") ||
-    arg.includes("--listen") ||
-    arg.includes("stdio") ||
-    arg.includes("mcp")
-  );
 
   if (isServerMode || !isInteractive) {
     await runInPipe(session, command, args, cwd);
@@ -177,6 +181,7 @@ async function runInPipe(
   args: string[],
   cwd: string
 ): Promise<void> {
+  setMuteConsole(true);
   let child: ChildProcess;
   child = spawn(command, args, {
     cwd,
