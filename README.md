@@ -168,6 +168,19 @@ aar retry-now --force
 ```
 Immediately resumes a session, bypassing the waiting time. If the reset time hasn't passed, it will warn you unless `--force` is provided (not recommended).
 
+### integrate
+```bash
+aar integrate <codex|antigravity|all>
+```
+Wraps the internal binary of Mac desktop applications (Codex App / Antigravity App) with `aar`.
+This allows the background daemon to automatically monitor and auto-resume API limits encountered within these desktop GUI environments.
+
+### unintegrate
+```bash
+aar unintegrate <codex|antigravity|all>
+```
+Restores the original desktop application binaries to their default state.
+
 ---
 
 ## Safety & Security Design

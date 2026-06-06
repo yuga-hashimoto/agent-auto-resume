@@ -9,6 +9,7 @@ import { runStatus } from "./commands/status.js";
 import { runSessions } from "./commands/sessions.js";
 import { runRecover } from "./commands/recover.js";
 import { runRetryNow } from "./commands/retry-now.js";
+import { runIntegrate, runUnintegrate } from "./commands/integrate.js";
 
 const program = new Command();
 
@@ -73,6 +74,17 @@ program
   .option("--last", "Retry the most recent waiting session")
   .option("--force", "Force retry even if reset time has not passed")
   .action(runRetryNow);
+
+program
+  .command("integrate <app>")
+  .description("Integrate desktop application binary with aar (app: codex, antigravity, all)")
+  .action(runIntegrate);
+
+program
+  .command("unintegrate <app>")
+  .description("Restore original application binary and remove wrapper (app: codex, antigravity, all)")
+  .action(runUnintegrate);
+
 
 // One-shot wrapper commands
 // これらはサブコマンド以下のすべてのオプションや引数をラップして managed mode に渡します。
