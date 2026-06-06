@@ -29,6 +29,44 @@ function resolveCommandPath(cmd: string, customPath: string): string {
   return cmd;
 }
 
+function adjustSpawnCommand(resolvedCmd: string, originalArgs: string[]): { cmd: string; args: string[] } {
+  try {
+    if (fs.existsSync(resolvedCmd)) {
+      const stat = fs.statSync(resolvedCmd);
+      if (stat.isFile()) {
+        const fd = fs.openSync(resolvedCmd, "r");
+        const buffer = Buffer.alloc(150);
+        const bytesRead = fs.readSync(fd, buffer, 0, 150, 0);
+        fs.closeSync(fd);
+
+        const content = buffer.toString("utf-8", 0, bytesRead);
+        if (content.startsWith("#!")) {
+          const firstLine = content.split("\n")[0].trim();
+          const shebangCmd = firstLine.slice(2).trim();
+
+          if (shebangCmd.includes("node")) {
+            return {
+              cmd: process.argv[0],
+              args: [resolvedCmd, ...originalArgs]
+            };
+          }
+          if (shebangCmd.includes("bash") || shebangCmd.includes("sh")) {
+            const shell = shebangCmd.split(" ")[0];
+            const resolvedShell = shell.endsWith("bash") ? "/bin/bash" : "/bin/sh";
+            return {
+              cmd: resolvedShell,
+              args: [resolvedCmd, ...originalArgs]
+            };
+          }
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return { cmd: resolvedCmd, args: originalArgs };
+}
+
 /**
  * セッションをバックグラウンド（PTY）で再開し、結果を監視する。
  * @param state セッション情報
@@ -69,9 +107,11 @@ export async function resumeSessionInBackground(state: SessionState): Promise<bo
     ].join(":");
 
     const resolvedCmd = resolveCommandPath(cmd, newPath);
-    logger.info(`Spawning command: ${cmd} (resolved: ${resolvedCmd}) with PATH: ${newPath}`, "aar");
+    const spawnConfig = adjustSpawnCommand(resolvedCmd, args);
 
-    ptyProcess = pty.spawn(resolvedCmd, args, {
+    logger.info(`Spawning command: ${spawnConfig.cmd} with args: ${JSON.stringify(spawnConfig.args)} (original: ${cmd})`, "aar");
+
+    ptyProcess = pty.spawn(spawnConfig.cmd, spawnConfig.args, {
       name: "xterm-color",
       cols: 80,
       rows: 24,
