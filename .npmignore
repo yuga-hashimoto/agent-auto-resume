@@ -1,0 +1,10 @@
+src
+tests
+coverage
+.github
+*.log
+.env
+tsconfig.json
+tsup.config.ts
+vitest.config.ts
+.eslintcache
