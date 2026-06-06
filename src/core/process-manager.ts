@@ -1,10 +1,33 @@
 import pty from "node-pty";
 import os from "os";
+import fs from "fs-extra";
+import path from "path";
 import { SessionState } from "./types.js";
 import { updateSession, getSession } from "./session-store.js";
 import { detectLimit } from "./detector.js";
 import { getProvider } from "../providers/index.js";
 import { logger } from "./logger.js";
+
+function resolveCommandPath(cmd: string, customPath: string): string {
+  if (cmd.includes("/") || cmd.includes("\\")) {
+    return cmd;
+  }
+  const paths = customPath.split(path.delimiter);
+  for (const p of paths) {
+    const fullPath = path.join(p, cmd);
+    try {
+      if (fs.existsSync(fullPath)) {
+        const stat = fs.statSync(fullPath);
+        if (stat.isFile()) {
+          return fullPath;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return cmd;
+}
 
 /**
  * セッションをバックグラウンド（PTY）で再開し、結果を監視する。
@@ -45,9 +68,10 @@ export async function resumeSessionInBackground(state: SessionState): Promise<bo
       pathEnv,
     ].join(":");
 
-    logger.debug(`Spawning command: ${cmd} with PATH: ${newPath}`, "aar");
+    const resolvedCmd = resolveCommandPath(cmd, newPath);
+    logger.info(`Spawning command: ${cmd} (resolved: ${resolvedCmd}) with PATH: ${newPath}`, "aar");
 
-    ptyProcess = pty.spawn(cmd, args, {
+    ptyProcess = pty.spawn(resolvedCmd, args, {
       name: "xterm-color",
       cols: 80,
       rows: 24,
