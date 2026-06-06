@@ -25,6 +25,9 @@ export const antigravityProvider: AgentProvider = {
       /resets_at/i,
       /retry after/i,
       /retry_after/i,
+      /resource_exhausted/i,
+      /exhausted your capacity/i,
+      /code 429/i,
     ];
 
     for (const line of lines) {

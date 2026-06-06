@@ -13,6 +13,14 @@ export const claudeProvider: AgentProvider = {
       /usage limit reached/i,
       /rate limit reached/i,
       /limit will reset at/i,
+      /resource_exhausted/i,
+      /exhausted your capacity/i,
+      /code 429/i,
+      /rate_limit_error/i,
+      /rate limit exceeded/i,
+      /exceeded your/i,
+      /session limit/i,
+      /hit your session limit/i,
     ];
 
     for (const line of lines) {
