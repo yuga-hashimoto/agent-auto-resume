@@ -57,12 +57,16 @@ export const codexProvider: AgentProvider = {
     try {
       const data = JSON.parse(line);
       if (data && typeof data === "object") {
-        const text = data.text || data.message || data.content;
+        const payload = data.payload || {};
+        const text = data.text || data.message || data.content || payload.text || payload.message || payload.content;
+        const cwd = data.cwd || payload.cwd;
+        const sessionId = data.sessionId || payload.id || payload.sessionId;
+        const timestamp = data.timestamp || payload.timestamp || data.createdAt || payload.createdAt;
         return {
           text: typeof text === "string" ? text : undefined,
-          cwd: typeof data.cwd === "string" ? data.cwd : undefined,
-          sessionId: typeof data.sessionId === "string" ? data.sessionId : undefined,
-          timestamp: typeof data.timestamp === "string" ? data.timestamp : undefined,
+          cwd: typeof cwd === "string" ? cwd : undefined,
+          sessionId: typeof sessionId === "string" ? sessionId : undefined,
+          timestamp: typeof timestamp === "string" ? timestamp : undefined,
         };
       }
     } catch {
