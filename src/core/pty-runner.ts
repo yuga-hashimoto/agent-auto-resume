@@ -1,9 +1,11 @@
 import pty from "node-pty";
+import { spawn, ChildProcess } from "child_process";
 import { SessionState, ProviderName } from "./types.js";
 import { detectLimit } from "./detector.js";
 import { createSession, updateSession, loadConfig, getSession } from "./session-store.js";
 import { logger } from "./logger.js";
 import { getProvider } from "../providers/index.js";
+
 
 export interface PtyRunnerOptions {
   providerName: ProviderName;
@@ -44,6 +46,19 @@ export async function runInPty(options: PtyRunnerOptions): Promise<void> {
 
   logger.info(`Managed session started: ${session.id}`, "aar");
 
+  const isInteractive = !!process.stdout.isTTY;
+  const isServerMode = args.some((arg) =>
+    arg.includes("app-server") ||
+    arg.includes("--listen") ||
+    arg.includes("stdio") ||
+    arg.includes("mcp")
+  );
+
+  if (isServerMode || !isInteractive) {
+    await runInPipe(session, command, args, cwd);
+    return;
+  }
+
   const ptyProcess = pty.spawn(command, args, {
     name: "xterm-color",
     cols: process.stdout.columns || 80,
@@ -56,6 +71,7 @@ export async function runInPty(options: PtyRunnerOptions): Promise<void> {
   });
 
   await updateSession(session.id, { pid: ptyProcess.pid, status: "running" });
+
 
   let limitDetected = false;
   let accumulatedOutput = "";
@@ -152,5 +168,104 @@ export async function runInPty(options: PtyRunnerOptions): Promise<void> {
     }
 
     process.exit(res.exitCode);
+  });
+}
+
+async function runInPipe(
+  session: SessionState,
+  command: string,
+  args: string[],
+  cwd: string
+): Promise<void> {
+  let child: ChildProcess;
+  child = spawn(command, args, {
+    cwd,
+    env: {
+      ...process.env,
+      AAR_SESSION_ID: session.id,
+    },
+  });
+
+  await updateSession(session.id, { pid: child.pid, status: "running" });
+
+
+  let limitDetected = false;
+  let accumulatedOutput = "";
+
+  if (child.stdin) {
+    process.stdin.pipe(child.stdin);
+  }
+
+  if (child.stdout) {
+    child.stdout.on("data", (data: Buffer) => {
+      process.stdout.write(data);
+
+      const str = data.toString("utf-8");
+      accumulatedOutput += str;
+      if (accumulatedOutput.length > 8192) {
+        accumulatedOutput = accumulatedOutput.slice(-4096);
+      }
+
+      checkLimit(str);
+    });
+  }
+
+  if (child.stderr) {
+    child.stderr.on("data", (data: Buffer) => {
+      process.stderr.write(data);
+
+      const str = data.toString("utf-8");
+      accumulatedOutput += str;
+      if (accumulatedOutput.length > 8192) {
+        accumulatedOutput = accumulatedOutput.slice(-4096);
+      }
+
+      checkLimit(str);
+    });
+  }
+
+  async function checkLimit(str: string) {
+    if (!limitDetected) {
+      const detection = detectLimit(accumulatedOutput, session.provider);
+      if (detection.matched) {
+        limitDetected = true;
+        
+        const resetAtStr = detection.resetAt ? detection.resetAt.toISOString() : undefined;
+        
+        logger.warn(`Usage limit detected for ${session.provider}!`, "aar");
+
+        await updateSession(session.id, {
+          status: "waiting_limit_reset",
+          lastLimitDetectedAt: new Date().toISOString(),
+          resetAt: resetAtStr,
+          lastOutputSnippet: accumulatedOutput.slice(-1000),
+        });
+
+        try {
+          child.kill();
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }
+
+  return new Promise<void>((resolve) => {
+    child.on("exit", async (code) => {
+      const currentSession = await getSession(session.id);
+      if (currentSession) {
+        if (currentSession.status === "running") {
+          await updateSession(session.id, {
+            status: code === 0 ? "completed" : "failed",
+            pid: undefined,
+          });
+        } else if (currentSession.status === "waiting_limit_reset") {
+          await updateSession(session.id, {
+            pid: undefined,
+          });
+        }
+      }
+      process.exit(code || 0);
+    });
   });
 }
