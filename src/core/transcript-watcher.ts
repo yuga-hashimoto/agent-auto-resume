@@ -85,6 +85,63 @@ export async function startTranscriptWatcher(abortSignal?: AbortSignal) {
   });
 }
 
+function getSessionIdFromPath(filePath: string, providerName: ProviderName): string {
+  const ext = path.extname(filePath);
+  const name = path.basename(filePath, ext);
+  if (providerName === "claude") {
+    return name;
+  } else if (providerName === "codex") {
+    if (name.startsWith("rollout-")) {
+      return name.replace(/^rollout-/, "");
+    }
+    return name;
+  } else if (providerName === "antigravity") {
+    const parts = filePath.split(path.sep);
+    const brainIdx = parts.lastIndexOf("brain");
+    if (brainIdx !== -1 && parts.length > brainIdx + 1) {
+      return parts[brainIdx + 1];
+    }
+  }
+  return name;
+}
+
+async function inferAntigravityCwd(sessionDir: string): Promise<string | undefined> {
+  const files = ["task.md", "walkthrough.md", "implementation_plan.md"];
+  const pathRegex = /file:\/\/(\/[^\s#)"]+)/g;
+  
+  for (const file of files) {
+    const filePath = path.join(sessionDir, file);
+    if (await fs.pathExists(filePath)) {
+      try {
+        const content = await fs.readFile(filePath, "utf-8");
+        let match;
+        while ((match = pathRegex.exec(content)) !== null) {
+          const fullPath = match[1];
+          if (fullPath.includes("/.gemini/")) {
+            continue;
+          }
+          const decodedPath = decodeURIComponent(fullPath);
+          const parts = decodedPath.split("/");
+          const githubIdx = parts.indexOf("GitHub");
+          if (githubIdx !== -1 && parts.length > githubIdx + 1) {
+            const repoRoot = parts.slice(0, githubIdx + 2).join("/");
+            if (await fs.pathExists(repoRoot)) {
+              return repoRoot;
+            }
+          }
+          const dir = path.dirname(decodedPath);
+          if (await fs.pathExists(dir)) {
+            return dir;
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }
+  return undefined;
+}
+
 async function handleFileChange(filePath: string, providerName: ProviderName) {
   const ext = path.extname(filePath).toLowerCase();
   if (ext !== ".json" && ext !== ".jsonl") {
@@ -111,6 +168,17 @@ async function handleFileChange(filePath: string, providerName: ProviderName) {
     const lines = content.split(/\r?\n/);
     const provider = getProvider(providerName);
 
+    const fileSessionId = getSessionIdFromPath(filePath, providerName);
+    let derivedCwd: string | undefined = undefined;
+    if (providerName === "antigravity") {
+      const parts = filePath.split(path.sep);
+      const brainIdx = parts.lastIndexOf("brain");
+      if (brainIdx !== -1 && parts.length > brainIdx + 1) {
+        const sessionDir = parts.slice(0, brainIdx + 2).join(path.sep);
+        derivedCwd = await inferAntigravityCwd(sessionDir);
+      }
+    }
+
     for (const line of lines) {
       if (!line.trim()) continue;
 
@@ -131,16 +199,19 @@ async function handleFileChange(filePath: string, providerName: ProviderName) {
 
           const sessions = await listSessions();
 
+          const targetSessionId = (event as any).sessionId || fileSessionId;
+
           // 既に waiting_limit_reset のセッションがある場合は重複作成しない
           const existingWaiting = sessions.find(
             (s) =>
               s.status === "waiting_limit_reset" &&
-              s.provider === providerName
+              s.provider === providerName &&
+              s.id === targetSessionId
           );
           if (existingWaiting) {
             logger.debug(`Already have a waiting session for ${providerName}: ${existingWaiting.id}, skipping`, "aar");
             // リセット時間が更新された場合はセッションを更新
-            const resetAtStr = detection.resetAt ? detection.resetAt.toISOString() : undefined;
+            const resetAtStr = detection.resetAt ? detection.resetAt.toISOString() : new Date().toISOString();
             if (resetAtStr && resetAtStr !== existingWaiting.resetAt) {
               await updateSession(existingWaiting.id, {
                 resetAt: resetAtStr,
@@ -154,9 +225,8 @@ async function handleFileChange(filePath: string, providerName: ProviderName) {
 
           const matchedSession = sessions.find(
             (s) =>
-              s.status === "running" &&
               s.provider === providerName &&
-              (event.cwd ? s.cwd === event.cwd : true)
+              s.id === targetSessionId
           );
 
           const resetAtStr = detection.resetAt ? detection.resetAt.toISOString() : new Date().toISOString();
@@ -169,14 +239,16 @@ async function handleFileChange(filePath: string, providerName: ProviderName) {
                 resetAt: resetAtStr,
                 lastOutputSnippet: event.text.slice(-1000),
                 transcriptPath: filePath,
+                cwd: event.cwd || derivedCwd || matchedSession.cwd,
               });
               logger.info(`Updated existing session ${matchedSession.id} to waiting_limit_reset`, "aar");
             }
           } else {
             const config = await loadConfig();
             const newSession = await createSession({
+              id: targetSessionId,
               provider: providerName,
-              cwd: event.cwd || process.cwd(),
+              cwd: event.cwd || derivedCwd || process.cwd(),
               originalCommand: provider.defaultCommand,
               resumeStrategy: providerName === "claude" ? "pty-input" : "command",
               status: "waiting_limit_reset",
