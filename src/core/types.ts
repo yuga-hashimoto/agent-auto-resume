@@ -58,7 +58,7 @@ export interface AgentProvider {
   displayName: string;
   defaultCommand: string[];
 
-  detectLimit(output: string): LimitDetection;
+  detectLimit(output: string, referenceDate?: Date): LimitDetection;
 
   getResumeCommand(state: SessionState): Promise<string[]> | string[];
 

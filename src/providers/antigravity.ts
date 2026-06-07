@@ -10,7 +10,7 @@ export const antigravityProvider: AgentProvider = {
   displayName: "Google Antigravity",
   defaultCommand: ["agy"],
 
-  detectLimit(output: string): LimitDetection {
+  detectLimit(output: string, referenceDate?: Date): LimitDetection {
     const lines = output.split(/\r?\n/);
     const patterns = [
       /usage limit reached/i,
@@ -37,7 +37,7 @@ export const antigravityProvider: AgentProvider = {
     for (const line of lines) {
       const matched = patterns.some((p) => p.test(line));
       if (matched) {
-        const resetAt = parseTimeString(line);
+        const resetAt = parseTimeString(line, referenceDate);
         return {
           matched: true,
           provider: "antigravity",

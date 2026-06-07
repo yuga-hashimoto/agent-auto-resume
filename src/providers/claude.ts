@@ -6,7 +6,7 @@ export const claudeProvider: AgentProvider = {
   displayName: "Claude Code",
   defaultCommand: ["claude"],
 
-  detectLimit(output: string): LimitDetection {
+  detectLimit(output: string, referenceDate?: Date): LimitDetection {
     const lines = output.split(/\r?\n/);
     const patterns = [
       /5-hour limit reached/i,
@@ -26,7 +26,7 @@ export const claudeProvider: AgentProvider = {
     for (const line of lines) {
       const matched = patterns.some((p) => p.test(line));
       if (matched) {
-        const resetAt = parseTimeString(line);
+        const resetAt = parseTimeString(line, referenceDate);
         return {
           matched: true,
           provider: "claude",

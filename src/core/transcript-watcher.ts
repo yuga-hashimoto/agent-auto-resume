@@ -184,7 +184,8 @@ async function handleFileChange(filePath: string, providerName: ProviderName) {
 
       const event = provider.parseTranscriptEvent!(line);
       if (event && event.text) {
-        const detection = detectLimit(event.text, providerName);
+        const refDate = event.timestamp ? new Date(event.timestamp) : undefined;
+        const detection = detectLimit(event.text, providerName, refDate);
         if (detection.matched) {
           // デバウンス: 同じプロバイダーで短期間に連続検知を防止
           const now = Date.now();
