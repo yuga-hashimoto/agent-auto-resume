@@ -1,6 +1,6 @@
 {
   "name": "agent-auto-resume",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "Daemon-based auto-resume for Claude Code, Codex CLI, and Antigravity CLI after provider-declared usage limits reset.",
   "type": "module",
   "bin": {
