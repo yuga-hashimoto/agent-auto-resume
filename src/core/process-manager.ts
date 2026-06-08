@@ -70,9 +70,18 @@ export async function resumeSessionInBackground(state: SessionState): Promise<bo
 
     const resolvedCmd = resolveCommandPath(cmd, newPath);
 
-    logger.info(`Spawning child process: ${resolvedCmd} with args: ${JSON.stringify(args)} (original: ${cmd})`, "aar");
+    let spawnCmd = resolvedCmd;
+    let spawnArgs = args;
 
-    child = spawn(resolvedCmd, args, {
+    if (state.resumeStrategy === "pty-input") {
+      spawnCmd = "script";
+      spawnArgs = ["-q", "/dev/null", resolvedCmd, ...args];
+      logger.info(`Using script command for TTY allocation: script -q /dev/null ${resolvedCmd} ${args.join(" ")}`, "aar");
+    } else {
+      logger.info(`Spawning child process: ${resolvedCmd} with args: ${JSON.stringify(args)} (original: ${cmd})`, "aar");
+    }
+
+    child = spawn(spawnCmd, spawnArgs, {
       cwd: state.cwd,
       stdio: ["pipe", "pipe", "pipe"],
       env: {
