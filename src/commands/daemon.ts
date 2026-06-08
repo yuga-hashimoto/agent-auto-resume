@@ -1,6 +1,6 @@
 import { startDaemonProcess, stopDaemonProcess } from "../core/daemon-client.js";
 import { isDaemonRunning, readPid } from "../core/daemon-ipc.js";
-import { LOG_FILE } from "../core/logger.js";
+import { getLogFile } from "../core/logger.js";
 import { AarDaemon } from "../core/daemon.js";
 import fs from "fs-extra";
 import chalk from "chalk";
@@ -25,8 +25,9 @@ export async function handleDaemon(action: string, options: { tmux?: boolean }) 
       console.log(chalk.red("Daemon is STOPPED"));
     }
   } else if (cleanAction === "logs") {
-    if (await fs.pathExists(LOG_FILE)) {
-      const content = await fs.readFile(LOG_FILE, "utf-8");
+    const logFile = getLogFile();
+    if (await fs.pathExists(logFile)) {
+      const content = await fs.readFile(logFile, "utf-8");
       console.log(content);
     } else {
       console.log("No log file found.");

@@ -5,11 +5,17 @@ import { nanoid } from "nanoid";
 import { SessionState, SessionStatus, AarConfig } from "./types.js";
 
 const DEFAULT_BASE_DIR = path.join(os.homedir(), ".agent-auto-resume");
-export const BASE_DIR = process.env.AAR_BASE_DIR || DEFAULT_BASE_DIR;
-export const SESSIONS_DIR = path.join(BASE_DIR, "sessions");
-export const EVENTS_DIR = path.join(BASE_DIR, "events");
-export const SHIMS_DIR = path.join(BASE_DIR, "shims");
-export const CONFIG_FILE = path.join(BASE_DIR, "config.json");
+export const getBaseDir = () => process.env.AAR_BASE_DIR || DEFAULT_BASE_DIR;
+export const getSessionsDir = () => path.join(getBaseDir(), "sessions");
+export const getEventsDir = () => path.join(getBaseDir(), "events");
+export const getShimsDir = () => path.join(getBaseDir(), "shims");
+export const getConfigFile = () => path.join(getBaseDir(), "config.json");
+
+export const BASE_DIR = getBaseDir();
+export const SESSIONS_DIR = getSessionsDir();
+export const EVENTS_DIR = getEventsDir();
+export const SHIMS_DIR = getShimsDir();
+export const CONFIG_FILE = getConfigFile();
 
 export function resolveHome(filepath: string): string {
   if (filepath.startsWith("~")) {
@@ -19,10 +25,10 @@ export function resolveHome(filepath: string): string {
 }
 
 export async function ensureDirs() {
-  await fs.ensureDir(BASE_DIR);
-  await fs.ensureDir(SESSIONS_DIR);
-  await fs.ensureDir(EVENTS_DIR);
-  await fs.ensureDir(SHIMS_DIR);
+  await fs.ensureDir(getBaseDir());
+  await fs.ensureDir(getSessionsDir());
+  await fs.ensureDir(getEventsDir());
+  await fs.ensureDir(getShimsDir());
 }
 
 export const DEFAULT_CONFIG: AarConfig = {
@@ -61,9 +67,9 @@ export const DEFAULT_CONFIG: AarConfig = {
 
 export async function loadConfig(): Promise<AarConfig> {
   await ensureDirs();
-  if (await fs.pathExists(CONFIG_FILE)) {
+  if (await fs.pathExists(getConfigFile())) {
     try {
-      const data = await fs.readJson(CONFIG_FILE);
+      const data = await fs.readJson(getConfigFile());
       // 深いマージを簡易的に行う
       return {
         ...DEFAULT_CONFIG,
@@ -80,13 +86,13 @@ export async function loadConfig(): Promise<AarConfig> {
       return DEFAULT_CONFIG;
     }
   }
-  await fs.writeJson(CONFIG_FILE, DEFAULT_CONFIG, { spaces: 2 });
+  await fs.writeJson(getConfigFile(), DEFAULT_CONFIG, { spaces: 2 });
   return DEFAULT_CONFIG;
 }
 
 export async function saveConfig(config: AarConfig): Promise<void> {
   await ensureDirs();
-  await fs.writeJson(CONFIG_FILE, config, { spaces: 2 });
+  await fs.writeJson(getConfigFile(), config, { spaces: 2 });
 }
 
 export async function createSession(
@@ -101,7 +107,7 @@ export async function createSession(
     createdAt: now,
     updatedAt: now,
   };
-  const sessionPath = path.join(SESSIONS_DIR, `${id}.json`);
+  const sessionPath = path.join(getSessionsDir(), `${id}.json`);
   await fs.writeJson(sessionPath, session, { spaces: 2 });
   return session;
 }
@@ -117,14 +123,14 @@ export async function updateSession(id: string, updates: Partial<SessionState>):
     ...updates,
     updatedAt: new Date().toISOString(),
   };
-  const sessionPath = path.join(SESSIONS_DIR, `${id}.json`);
+  const sessionPath = path.join(getSessionsDir(), `${id}.json`);
   await fs.writeJson(sessionPath, updated, { spaces: 2 });
   return updated;
 }
 
 export async function getSession(id: string): Promise<SessionState | undefined> {
   await ensureDirs();
-  const sessionPath = path.join(SESSIONS_DIR, `${id}.json`);
+  const sessionPath = path.join(getSessionsDir(), `${id}.json`);
   if (!(await fs.pathExists(sessionPath))) {
     return undefined;
   }
@@ -137,12 +143,12 @@ export async function getSession(id: string): Promise<SessionState | undefined> 
 
 export async function listSessions(): Promise<SessionState[]> {
   await ensureDirs();
-  const files = await fs.readdir(SESSIONS_DIR);
+  const files = await fs.readdir(getSessionsDir());
   const jsonFiles = files.filter((f) => f.endsWith(".json"));
   const sessions: SessionState[] = [];
   for (const file of jsonFiles) {
     try {
-      const session = await fs.readJson(path.join(SESSIONS_DIR, file));
+      const session = await fs.readJson(path.join(getSessionsDir(), file));
       sessions.push(session);
     } catch {
       // 破損ファイルは無視
@@ -169,7 +175,7 @@ export async function getWaitingSessions(): Promise<SessionState[]> {
 
 export async function deleteSession(id: string): Promise<void> {
   await ensureDirs();
-  const sessionPath = path.join(SESSIONS_DIR, `${id}.json`);
+  const sessionPath = path.join(getSessionsDir(), `${id}.json`);
   if (await fs.pathExists(sessionPath)) {
     await fs.remove(sessionPath);
   }

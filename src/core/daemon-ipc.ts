@@ -1,20 +1,20 @@
 import path from "path";
 import fs from "fs-extra";
-import { BASE_DIR, ensureDirs } from "./session-store.js";
+import { getBaseDir, ensureDirs } from "./session-store.js";
 
-export const PID_FILE = path.join(BASE_DIR, "daemon.pid");
+export const getPidFile = () => path.join(getBaseDir(), "daemon.pid");
 
 export async function writePid(pid: number): Promise<void> {
   await ensureDirs();
-  await fs.writeFile(PID_FILE, pid.toString(), "utf-8");
+  await fs.writeFile(getPidFile(), pid.toString(), "utf-8");
 }
 
 export async function readPid(): Promise<number | undefined> {
-  if (!(await fs.pathExists(PID_FILE))) {
+  if (!(await fs.pathExists(getPidFile()))) {
     return undefined;
   }
   try {
-    const content = await fs.readFile(PID_FILE, "utf-8");
+    const content = await fs.readFile(getPidFile(), "utf-8");
     const pid = parseInt(content.trim(), 10);
     return isNaN(pid) ? undefined : pid;
   } catch {
@@ -23,8 +23,8 @@ export async function readPid(): Promise<number | undefined> {
 }
 
 export async function clearPid(): Promise<void> {
-  if (await fs.pathExists(PID_FILE)) {
-    await fs.remove(PID_FILE);
+  if (await fs.pathExists(getPidFile())) {
+    await fs.remove(getPidFile());
   }
 }
 

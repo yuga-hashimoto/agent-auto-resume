@@ -1,9 +1,9 @@
 import path from "path";
 import fs from "fs-extra";
 import chalk from "chalk";
-import { BASE_DIR, ensureDirs } from "./session-store.js";
+import { getBaseDir, ensureDirs } from "./session-store.js";
 
-export const LOG_FILE = path.join(BASE_DIR, "daemon.log");
+export const getLogFile = () => path.join(getBaseDir(), "daemon.log");
 
 export enum LogLevel {
   DEBUG = 0,
@@ -29,7 +29,7 @@ async function writeToFile(message: string) {
     const ts = new Date().toISOString();
     // 制御文字 (chalkのカラーコードなど) を削除してログファイルに保存
     const cleanMsg = message.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, "");
-    await fs.appendFile(LOG_FILE, `[${ts}] ${cleanMsg}\n`, "utf-8");
+    await fs.appendFile(getLogFile(), `[${ts}] ${cleanMsg}\n`, "utf-8");
   } catch {
     // ログ書き込み失敗は静かに無視
   }

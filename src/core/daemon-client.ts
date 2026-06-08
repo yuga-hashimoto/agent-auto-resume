@@ -1,7 +1,7 @@
 import { spawn } from "child_process";
 import fs from "fs-extra";
 import { isDaemonRunning, readPid } from "./daemon-ipc.js";
-import { LOG_FILE } from "./logger.js";
+import { getLogFile } from "./logger.js";
 import { ensureDirs } from "./session-store.js";
 
 /**
@@ -42,8 +42,9 @@ export async function startDaemonProcess(options: { tmux?: boolean } = {}): Prom
 
   console.log("Starting agent-auto-resume daemon in background...");
 
-  const outFd = fs.openSync(LOG_FILE, "a");
-  const errFd = fs.openSync(LOG_FILE, "a");
+  const logFile = getLogFile();
+  const outFd = fs.openSync(logFile, "a");
+  const errFd = fs.openSync(logFile, "a");
 
   const child = spawn(nodeBin, cleanArgs, {
     detached: true,
@@ -60,13 +61,13 @@ export async function startDaemonProcess(options: { tmux?: boolean } = {}): Prom
     await new Promise((resolve) => setTimeout(resolve, 500));
     if (await isDaemonRunning()) {
       const pid = await readPid();
-      console.log(`Daemon started successfully (PID: ${pid}). Log file: ${LOG_FILE}`);
+      console.log(`Daemon started successfully (PID: ${pid}). Log file: ${logFile}`);
       return;
     }
   }
 
   console.error("Failed to start daemon. Please check the log file for errors:");
-  console.error(LOG_FILE);
+  console.error(logFile);
 }
 
 /**
