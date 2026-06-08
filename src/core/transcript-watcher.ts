@@ -142,6 +142,61 @@ async function inferAntigravityCwd(sessionDir: string): Promise<string | undefin
   return undefined;
 }
 
+async function inferCwdFromTranscript(filePath: string): Promise<string | undefined> {
+  const pathRegex = /file:\/\/(\/[^\s#)"]+)/g;
+  const absPathRegex = /"(\/(?:Volumes|Users)\/[^"]+)"/g;
+  
+  if (await fs.pathExists(filePath)) {
+    try {
+      const content = await fs.readFile(filePath, "utf-8");
+      
+      let match;
+      while ((match = pathRegex.exec(content)) !== null) {
+        const fullPath = match[1];
+        if (fullPath.includes("/.gemini/") || fullPath.includes("/.claude/") || fullPath.includes("/.codex/")) {
+          continue;
+        }
+        const decodedPath = decodeURIComponent(fullPath);
+        const parts = decodedPath.split("/");
+        const githubIdx = parts.indexOf("GitHub");
+        if (githubIdx !== -1 && parts.length > githubIdx + 1) {
+          const repoRoot = parts.slice(0, githubIdx + 2).join("/");
+          if (await fs.pathExists(repoRoot)) {
+            return repoRoot;
+          }
+        }
+        const dir = path.dirname(decodedPath);
+        if (await fs.pathExists(dir)) {
+          return dir;
+        }
+      }
+      
+      pathRegex.lastIndex = 0; // reset
+      while ((match = absPathRegex.exec(content)) !== null) {
+        const fullPath = match[1];
+        if (fullPath.includes("/.gemini/") || fullPath.includes("/.claude/") || fullPath.includes("/.codex/")) {
+          continue;
+        }
+        const parts = fullPath.split("/");
+        const githubIdx = parts.indexOf("GitHub");
+        if (githubIdx !== -1 && parts.length > githubIdx + 1) {
+          const repoRoot = parts.slice(0, githubIdx + 2).join("/");
+          if (await fs.pathExists(repoRoot)) {
+            return repoRoot;
+          }
+        }
+        const dir = path.dirname(fullPath);
+        if (await fs.pathExists(dir)) {
+          return dir;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return undefined;
+}
+
 async function handleFileChange(filePath: string, providerName: ProviderName) {
   const ext = path.extname(filePath).toLowerCase();
   if (ext !== ".json" && ext !== ".jsonl") {
@@ -177,6 +232,8 @@ async function handleFileChange(filePath: string, providerName: ProviderName) {
         const sessionDir = parts.slice(0, brainIdx + 2).join(path.sep);
         derivedCwd = await inferAntigravityCwd(sessionDir);
       }
+    } else {
+      derivedCwd = await inferCwdFromTranscript(filePath);
     }
 
     for (const line of lines) {

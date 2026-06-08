@@ -93,6 +93,32 @@ describe("time-parser", () => {
     expect(d4?.getTime()).toBe(expected4);
   });
 
+  it("should parse 'Month Day, Year Hour:Minute AM/PM' format (Codex)", () => {
+    const d1 = parseTimeString("try again at Jun 12th, 2026 12:26 PM.", refDate);
+    expect(d1).toBeDefined();
+    expect(d1?.getFullYear()).toBe(2026);
+    expect(d1?.getMonth()).toBe(5); // June
+    expect(d1?.getDate()).toBe(12);
+    expect(d1?.getHours()).toBe(12 + 12 - 12); // 12 PM is 12:00
+    expect(d1?.getMinutes()).toBe(26);
+
+    const d2 = parseTimeString("try again at Jun 12, 2026 12:26 AM.", refDate);
+    expect(d2).toBeDefined();
+    expect(d2?.getFullYear()).toBe(2026);
+    expect(d2?.getMonth()).toBe(5); // June
+    expect(d2?.getDate()).toBe(12);
+    expect(d2?.getHours()).toBe(0); // 12 AM is 00:00
+    expect(d2?.getMinutes()).toBe(26);
+
+    const d3 = parseTimeString("try again at June 12, 2026 3:45 PM.", refDate);
+    expect(d3).toBeDefined();
+    expect(d3?.getFullYear()).toBe(2026);
+    expect(d3?.getMonth()).toBe(5);
+    expect(d3?.getDate()).toBe(12);
+    expect(d3?.getHours()).toBe(15); // 3 PM is 15:00
+    expect(d3?.getMinutes()).toBe(45);
+  });
+
   it("should return undefined for invalid strings", () => {
     const d = parseTimeString("just some random text", refDate);
     expect(d).toBeUndefined();

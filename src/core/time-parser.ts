@@ -28,6 +28,36 @@ export function parseTimeString(str: string, referenceDate: Date = new Date()): 
     return new Date(referenceDate.getTime() + 60_000);
   }
 
+  // 1.8. "Jun 12th, 2026 12:26 PM" 形式 (Codex)
+  // 例: "Jun 12th, 2026 12:26 PM", "June 12, 2026 12:26 PM"
+  const monthDayYearRegex = /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?\s*,\s*(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm)?/i;
+  const mdyMatch = str.match(monthDayYearRegex);
+  if (mdyMatch) {
+    const monthStr = mdyMatch[1].toLowerCase().slice(0, 3);
+    const monthMap: Record<string, number> = {
+      jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+      jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
+    };
+    const month = monthMap[monthStr];
+    const day = parseInt(mdyMatch[2], 10);
+    const year = parseInt(mdyMatch[3], 10);
+    let hour = parseInt(mdyMatch[4], 10);
+    const minute = parseInt(mdyMatch[5], 10);
+    const second = mdyMatch[6] ? parseInt(mdyMatch[6], 10) : 0;
+    const ampm = mdyMatch[7] ? mdyMatch[7].toLowerCase() : "";
+
+    if (ampm === "pm" && hour < 12) {
+      hour += 12;
+    } else if (ampm === "am" && hour === 12) {
+      hour = 0;
+    }
+
+    const date = new Date(year, month, day, hour, minute, second);
+    if (!isNaN(date.getTime())) {
+      return date;
+    }
+  }
+
   // 2. ISO8601
   // 2026-06-06T15:00:00+09:00, 2026-06-06T15:00:00Z など
   const isoRegex = /(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)/i;
